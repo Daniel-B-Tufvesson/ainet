@@ -66,7 +66,7 @@ class Sequence(BaseModel):
 
         return transforms
 
-    def _compute_local_gradients(self, gradients: np.ndarray) -> np.ndarray:
+    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
         # Back-propagate through the layers.
         for layer in reversed(self.layers):
             gradients = layer.backward_pass(gradients)
@@ -76,11 +76,55 @@ class Sequence(BaseModel):
     def predict(self, x: np.ndarray) -> np.ndarray:
         return self.forward_pass(x)
 
-    def fit(self, x: np.ndarray, y: np.ndarray):
-        print('fit not implemented')
+    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.001):
+
+        y = y[:, np.newaxis]
+
+        for epoch in range(epochs):
+            prediction = self.forward_pass(x)
+            loss, error = self.compute_loss(prediction, y)
+            loss_gradients = self.compute_loss_gradients(error)
+
+            #print('loss', loss, 'error', error.shape, 'loss_gradients', loss_gradients.shape)
+
+            print(f'epoch: {epoch+1}/{epochs}.  loss: {loss}')
+            #print('loss gradients: ', loss_gradients.shape)
+
+            # Backpropagate the loss gradients.
+            self.backward_pass(loss_gradients)
+
+            # Update the weights.
+            self.update_parameters(learning_rate)
+
+
+
+    def compute_loss(self, prediction_y: np.ndarray, target_y: np.ndarray) -> tuple[float, np.ndarray]:
+        """
+        Compute the loss and error.
+        :param prediction_y:
+        :param target_y:
+        :return:
+        """
+        #print('prediction: ', prediction_y.shape, ', target: ', target_y.shape)
+        #error = (target_y - prediction_y.transpose()).transpose() # Kinda weird that we have to transpose.
+        error = target_y - prediction_y
+        #print('error: ', error.shape)
+        loss = np.mean(error ** 2)
+        return loss, error
+
+
+    def compute_loss_gradients(self, error: np.ndarray) -> np.ndarray:
+        n = error.shape[0]
+        return 2 * error / n
+
+    def update_parameters(self, learning_rate):
+        for layer in self.layers:
+            layer.update_parameters(learning_rate)
 
     def evaluate(self, x: np.ndarray, y: np.ndarray):
         print('evaluate not implemented.')
+
+
 
 
 def test_sequence_model():
@@ -117,9 +161,12 @@ def test_train_seq_model():
     val_data_x = np.array([new_sample_x() for _ in range(100)])
     val_data_y = np.array([math.prod(x) for x in val_data_x])
 
+    prediction = model.predict(train_data_x)
+    #print(prediction)
+
     # Train the model.
     print('train model...')
-    model.fit(train_data_x, train_data_y)
+    model.fit(train_data_x, train_data_y, epochs=100)
     print('training complete')
 
 
