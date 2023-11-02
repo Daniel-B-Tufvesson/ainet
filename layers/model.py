@@ -76,9 +76,12 @@ class Sequence(BaseModel):
     def predict(self, x: np.ndarray) -> np.ndarray:
         return self.forward_pass(x)
 
-    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.001):
-
+    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.01):
+        #x = x.astype(dtype=float)
         y = y[:, np.newaxis]
+
+        # Todo: gets stuck in local minimum. Fix: Momentum? Adam?
+
 
         for epoch in range(epochs):
             prediction = self.forward_pass(x)
@@ -144,7 +147,9 @@ def test_train_seq_model():
 
     model = Sequence(input_dimensions=(input_len,))
     model.add(layers.FullyConnected(input_len))
-    model.add(layers.ReLU())
+    model.add(layers.Sigmoid())
+    model.add(layers.FullyConnected(5))
+    model.add(layers.Sigmoid())
     model.add(layers.FullyConnected(1))
     model.compile()
 

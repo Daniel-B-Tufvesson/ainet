@@ -115,11 +115,17 @@ class FullyConnected(Layer):
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
         self.weight_gradients = self.x.transpose() @ gradients
         x_gradients = gradients @ self.weights.transpose()
+        #print('x: ', self.x)
+        #print('dy:', gradients)
+        #print('dw', self.weight_gradients)
+
         return x_gradients
 
     def update_parameters(self, learning_rate):
         # SGD optimization.
-        self.weights -= self.weight_gradients * learning_rate
+        self.weights += self.weight_gradients * learning_rate  # Should this not be minus??
+        #print('dW: ', self.weight_gradients)
+        #print('W: ', self.weights)
 
     def rand_init_weights(self):
         """
@@ -146,7 +152,7 @@ class ReLU(Layer):
         #relu_gradient = np.vectorize(lambda x: 1 if x > 0 else 0)
 
         #return relu_gradient(gradients)
-        return gradients > 0
+        return gradients * (self.x > 0)
 
         #return np.ndarray([1 if x_i > 0 else 0 for x_i in self.x])
 
@@ -154,3 +160,19 @@ class ReLU(Layer):
         pass
 
 
+class Sigmoid(Layer):
+
+    @staticmethod
+    def sigmoid(x: np.ndarray) -> np.ndarray:
+        return 1 / (1 + np.exp(-x))
+
+    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
+        return self.sigmoid(x)
+
+    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
+        s = self.sigmoid(self.x)
+        da = s * (1 - s)
+        return da * gradients
+
+    def update_parameters(self, learning_rate):
+        pass
