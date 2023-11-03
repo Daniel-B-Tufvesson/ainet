@@ -123,7 +123,7 @@ class FullyConnected(Layer):
 
     def update_parameters(self, learning_rate):
         # SGD optimization.
-        self.weights += self.weight_gradients * learning_rate  # Should this not be minus??
+        self.weights -= self.weight_gradients * learning_rate  # Should this not be minus??
         #print('dW: ', self.weight_gradients)
         #print('W: ', self.weights)
 
@@ -131,11 +131,10 @@ class FullyConnected(Layer):
         """
         Initialize weights with small random numbers. Suitable only for shallow networks.
         """
-        # Init with values in range [-1.0, 1.0]
 
         for i in range(self.weights.shape[0]):
             for j in range(self.weights.shape[1]):
-                self.weights[i, j] = (rand.random() * 2 - 1) * 0.0001
+                self.weights[i, j] = (rand.random()) * 0.0001
 
         #print('rand weights: ', self.weights)
 
@@ -171,8 +170,8 @@ class Sigmoid(Layer):
 
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
         s = self.sigmoid(self.x)
-        da = s * (1 - s)
-        return da * gradients
+        d_sigmoid = s * (1 - s)
+        return gradients * d_sigmoid
 
     def update_parameters(self, learning_rate):
         pass

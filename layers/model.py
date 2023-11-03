@@ -1,3 +1,4 @@
+import random
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -16,7 +17,7 @@ class BaseModel(layers.Layer, ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, x: np.ndarray, y:np.ndarray):
+    def evaluate(self, x: np.ndarray, y: np.ndarray):
         pass
 
     @abstractmethod
@@ -76,49 +77,72 @@ class Sequence(BaseModel):
     def predict(self, x: np.ndarray) -> np.ndarray:
         return self.forward_pass(x)
 
-    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.01):
-        #x = x.astype(dtype=float)
+    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.01, batch_size=32):
+
+        if len(x.shape) != 2:
+            raise ValueError('x is expected to have a two dimensional shape: (number_of_examples, input_length)')
+
+        if (x.shape[1], ) != self.input_dimensions:
+            raise ValueError(f'x does not have the correct input length. expected:'
+                             f' {self.input_dimensions}, got: {(x.shape[1], )}')
+
         y = y[:, np.newaxis]
 
         # Todo: gets stuck in local minimum. Fix: Momentum? Adam?
-
+        batches = self.create_batches(x, y, batch_size)
 
         for epoch in range(epochs):
-            prediction = self.forward_pass(x)
-            loss, error = self.compute_loss(prediction, y)
-            loss_gradients = self.compute_loss_gradients(error)
 
-            #print('loss', loss, 'error', error.shape, 'loss_gradients', loss_gradients.shape)
+            total_loss = 0
+            random.shuffle(batches)
 
-            print(f'epoch: {epoch+1}/{epochs}.  loss: {loss}')
-            #print('loss gradients: ', loss_gradients.shape)
+            for batch in batches:
+                bx = batch[0]
+                by = batch[1]
+                prediction = self.forward_pass(bx)
+                loss = self.compute_loss(prediction, by)
+                loss_gradients = self.compute_loss_gradients(prediction, by)
 
-            # Backpropagate the loss gradients.
-            self.backward_pass(loss_gradients)
+                total_loss += loss
 
-            # Update the weights.
-            self.update_parameters(learning_rate)
+                # print('loss', loss, 'error', error.shape, 'loss_gradients', loss_gradients.shape)
 
 
+                # print('loss gradients: ', loss_gradients.shape)
 
-    def compute_loss(self, prediction_y: np.ndarray, target_y: np.ndarray) -> tuple[float, np.ndarray]:
+                # Backpropagate the loss gradients.
+                self.backward_pass(loss_gradients)
+
+                # Update the weights.
+                self.update_parameters(learning_rate)
+
+            avg_loss = total_loss / len(batches)
+            print(f'epoch: {epoch + 1}/{epochs}.  loss: {avg_loss}')
+
+    def create_batches(self, x: np.ndarray, y: np.ndarray, batch_size: int) -> list[(np.ndarray, np.ndarray)]:
+        example_count = x.shape[0]
+        batches = []
+        for start in range(0, example_count, batch_size):
+            batch_x = x[start: start + batch_size]
+            batch_y = y[start: start + batch_size]
+            batches.append((batch_x, batch_y))
+
+        return batches
+
+    def compute_loss(self, prediction_y: np.ndarray, target_y: np.ndarray) -> float:
         """
         Compute the loss and error.
         :param prediction_y:
         :param target_y:
         :return:
         """
-        #print('prediction: ', prediction_y.shape, ', target: ', target_y.shape)
-        #error = (target_y - prediction_y.transpose()).transpose() # Kinda weird that we have to transpose.
-        error = target_y - prediction_y
-        #print('error: ', error.shape)
-        loss = np.mean(error ** 2)
-        return loss, error
+        loss = np.mean((prediction_y - target_y) ** 2)
+        return loss
 
+    def compute_loss_gradients(self, prediction_y, target_y) -> np.ndarray:
+        n = prediction_y.shape[0]
+        return 2 * (prediction_y - target_y) / n
 
-    def compute_loss_gradients(self, error: np.ndarray) -> np.ndarray:
-        n = error.shape[0]
-        return 2 * error / n
 
     def update_parameters(self, learning_rate):
         for layer in self.layers:
@@ -128,10 +152,8 @@ class Sequence(BaseModel):
         print('evaluate not implemented.')
 
 
-
-
 def test_sequence_model():
-    model = Sequence(input_dimensions=(10, ))
+    model = Sequence(input_dimensions=(10,))
     model.add(layers.FullyConnected(10))
     model.add(layers.ReLU())
     model.add(layers.FullyConnected(2))
@@ -142,7 +164,6 @@ def test_sequence_model():
 
 
 def test_train_seq_model():
-
     input_len = 5
 
     model = Sequence(input_dimensions=(input_len,))
@@ -158,7 +179,7 @@ def test_train_seq_model():
     import math
 
     def new_sample_x():
-        return [rand.randrange(1, 10) for _ in range(input_len)]
+        return [rand.randrange(-10, 10) / 10 for _ in range(input_len)]
 
     train_data_x = np.array([new_sample_x() for _ in range(100)])
     train_data_y = np.array([math.prod(x) for x in train_data_x])
@@ -167,13 +188,14 @@ def test_train_seq_model():
     val_data_y = np.array([math.prod(x) for x in val_data_x])
 
     prediction = model.predict(train_data_x)
-    #print(prediction)
+    # print(prediction)
 
     # Train the model.
     print('train model...')
     model.fit(train_data_x, train_data_y, epochs=100)
     print('training complete')
 
+    #print(model.create_batches(train_data_x, 32))
 
 
 if __name__ == '__main__':
