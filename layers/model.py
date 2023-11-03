@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import loss_functions
-
+import optimizers
 import layers
 
 
@@ -22,8 +22,10 @@ class BaseModel(layers.Layer, ABC):
         pass
 
     @abstractmethod
-    def compile(self):
-        """Compile the model."""
+    def compile(self, optimizer):
+        """Compile the model.
+        :param optimizer:
+        """
         pass
 
 
@@ -45,15 +47,16 @@ class Sequence(BaseModel):
     def add(self, layer: layers.Layer):
         self.layers.append(layer)
 
-    def compile(self):
-        self.compile_layer(self.input_dimensions)
+    def compile(self, optimizer: optimizers.Optimizer):
+        self.compile_layer(self.input_dimensions, optimizer)
 
-    def compile_layer(self, input_dimensions: tuple[int, ...]):
-        super().compile_layer(input_dimensions)
+    def compile_layer(self, input_dimensions: tuple[int, ...],
+                      optimizer: optimizers.Optimizer):
+        super().compile_layer(input_dimensions, optimizer)
 
         # Compile each layer.
         for layer in self.layers:
-            layer.compile_layer(input_dimensions)
+            layer.compile_layer(input_dimensions, optimizer)
             input_dimensions = layer.output_dimensions
 
         # Last layers output dimensions becomes this sequence's output dimensions.
@@ -105,15 +108,14 @@ class Sequence(BaseModel):
             for batch in batches:
                 bx = batch[0]
                 by = batch[1]
+
+                # Make the forward pass.
                 prediction = self.forward_pass(bx)
+
+                # Compute the loss and its gradients.
                 loss = loss_func.loss(prediction, by)
                 loss_gradients = loss_func.gradient(prediction, by)
-
                 total_loss += loss
-
-                # print('loss', loss, 'error', error.shape, 'loss_gradients', loss_gradients.shape)
-
-                # print('loss gradients: ', loss_gradients.shape)
 
                 # Backpropagate the loss gradients.
                 self.backward_pass(loss_gradients)
@@ -147,7 +149,7 @@ def test_sequence_model():
     model.add(layers.FullyConnected(10))
     model.add(layers.ReLU())
     model.add(layers.FullyConnected(2))
-    model.compile()
+    model.compile(None)
 
     x = np.array([0, 1, 2, 1, 0, -2, 2, 0, 1, -4])
     print(model.predict(x))
@@ -162,7 +164,7 @@ def test_train_seq_model():
     model.add(layers.FullyConnected(5))
     model.add(layers.Sigmoid())
     model.add(layers.FullyConnected(1))
-    model.compile()
+    model.compile(optimizer=optimizers.SGD())
 
     # Generate training and validation data.
     import random as rand
@@ -172,10 +174,10 @@ def test_train_seq_model():
         return [rand.randrange(-10, 10) / 10 for _ in range(input_len)]
 
     train_data_x = np.array([new_sample_x() for _ in range(100)])
-    train_data_y = np.array([math.prod(x) for x in train_data_x])
+    train_data_y = np.array([math.prod(x) * 10 for x in train_data_x])
 
     val_data_x = np.array([new_sample_x() for _ in range(100)])
-    val_data_y = np.array([math.prod(x) for x in val_data_x])
+    val_data_y = np.array([math.prod(x) * 10 for x in val_data_x])
 
     prediction = model.predict(train_data_x)
     # print(prediction)

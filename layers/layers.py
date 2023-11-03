@@ -2,6 +2,7 @@ from abc import abstractmethod, ABC
 
 import numpy as np
 import random as rand
+import optimizers
 
 
 class Layer(ABC):
@@ -12,19 +13,23 @@ class Layer(ABC):
         #self.gradients = np.empty(0)  # The last (non-local) gradient of this layer.
         self.input_dimensions = (0,)  # The dimensionality of the input.
         self.output_dimensions = (0,)  # The dimensionality of the output.
+        self.optimizer = None  # type: optimizers.Optimizer | None
 
-    def compile_layer(self, input_dimensions: tuple[int, ...]):
+    def compile_layer(self, input_dimensions: tuple[int, ...], optimizer: optimizers.Optimizer):
         """
         Compile this layer. This is usually where the layer creates its parameters.
+        :param optimizer:
         :param input_dimensions: the dimensionality of the input.
         """
         self.input_dimensions = input_dimensions
         self.output_dimensions = input_dimensions
+        self.optimizer = optimizer
 
     def forward_pass(self, x: np.ndarray) -> np.ndarray:
         """
         Compute the forward pass.
-        :param x: a matrix with shape (input_dimensions) for unbatched, or (n, input_dimensions) for batched with
+        :param x: a matrix with shape (input_dimensions) for unbatched, or
+        (n, input_dimensions) for batched with
         a batch size of n.
         :return:
         """
@@ -94,13 +99,13 @@ class FullyConnected(Layer):
         self.weights = np.zeros(0)  # The weight matrix.
         self.weight_gradients = np.zeros(0)  # The gradients for each weight.
 
-    def compile_layer(self, input_dimensions: tuple[int, ...]):
+    def compile_layer(self, input_dimensions: tuple[int, ...], optimizer: optimizers.Optimizer):
 
         # Make sure input vector only has one dimension.
         if len(input_dimensions) != 1:
             raise ValueError('fully connected layers only support 1 dimensional input')
 
-        super().compile_layer(input_dimensions)
+        super().compile_layer(input_dimensions, optimizer)
 
         # Create the weight matrix.
         self.weights = np.zeros(shape=(input_dimensions[0], self.units))
@@ -122,10 +127,12 @@ class FullyConnected(Layer):
         return x_gradients
 
     def update_parameters(self, learning_rate):
+        if self.optimizer is None:
+            raise ValueError('optimizer is not set')
+
+        self.weights = self.optimizer.step(self.weights, self.weight_gradients, learning_rate)
         # SGD optimization.
-        self.weights -= self.weight_gradients * learning_rate  # Should this not be minus??
-        #print('dW: ', self.weight_gradients)
-        #print('W: ', self.weights)
+        #self.weights -= self.weight_gradients * learning_rate
 
     def rand_init_weights(self):
         """
