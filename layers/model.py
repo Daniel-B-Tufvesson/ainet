@@ -2,6 +2,7 @@ import random
 from abc import ABC, abstractmethod
 
 import numpy as np
+import loss_functions
 
 import layers
 
@@ -77,14 +78,19 @@ class Sequence(BaseModel):
     def predict(self, x: np.ndarray) -> np.ndarray:
         return self.forward_pass(x)
 
-    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.01, batch_size=32):
+    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.01, batch_size=32,
+            loss_func: loss_functions.LossFunction | None = None):
 
         if len(x.shape) != 2:
             raise ValueError('x is expected to have a two dimensional shape: (number_of_examples, input_length)')
 
-        if (x.shape[1], ) != self.input_dimensions:
+        if (x.shape[1],) != self.input_dimensions:
             raise ValueError(f'x does not have the correct input length. expected:'
-                             f' {self.input_dimensions}, got: {(x.shape[1], )}')
+                             f' {self.input_dimensions}, got: {(x.shape[1],)}')
+
+        if loss_func is None:
+            print('Loss function not specified. Use loss_functions.MSE')
+            loss_func = loss_functions.MSE()
 
         y = y[:, np.newaxis]
 
@@ -94,19 +100,18 @@ class Sequence(BaseModel):
         for epoch in range(epochs):
 
             total_loss = 0
-            random.shuffle(batches)
+            #random.shuffle(batches)
 
             for batch in batches:
                 bx = batch[0]
                 by = batch[1]
                 prediction = self.forward_pass(bx)
-                loss = self.compute_loss(prediction, by)
-                loss_gradients = self.compute_loss_gradients(prediction, by)
+                loss = loss_func.loss(prediction, by)
+                loss_gradients = loss_func.gradient(prediction, by)
 
                 total_loss += loss
 
                 # print('loss', loss, 'error', error.shape, 'loss_gradients', loss_gradients.shape)
-
 
                 # print('loss gradients: ', loss_gradients.shape)
 
@@ -128,21 +133,6 @@ class Sequence(BaseModel):
             batches.append((batch_x, batch_y))
 
         return batches
-
-    def compute_loss(self, prediction_y: np.ndarray, target_y: np.ndarray) -> float:
-        """
-        Compute the loss and error.
-        :param prediction_y:
-        :param target_y:
-        :return:
-        """
-        loss = np.mean((prediction_y - target_y) ** 2)
-        return loss
-
-    def compute_loss_gradients(self, prediction_y, target_y) -> np.ndarray:
-        n = prediction_y.shape[0]
-        return 2 * (prediction_y - target_y) / n
-
 
     def update_parameters(self, learning_rate):
         for layer in self.layers:
@@ -195,7 +185,7 @@ def test_train_seq_model():
     model.fit(train_data_x, train_data_y, epochs=100)
     print('training complete')
 
-    #print(model.create_batches(train_data_x, 32))
+    # print(model.create_batches(train_data_x, 32))
 
 
 if __name__ == '__main__':
