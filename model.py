@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+
+import activations
 import loss_functions
 import optimizers
 import layers
@@ -146,7 +148,7 @@ class Sequence(BaseModel):
 def test_sequence_model():
     model = Sequence(input_dimensions=(10,))
     model.add(layers.FullyConnected(10))
-    model.add(layers.ReLU())
+    model.add(activations.ReLU())
     model.add(layers.FullyConnected(2))
     model.compile(None)
 
@@ -159,9 +161,9 @@ def test_train_seq_model():
 
     model = Sequence(input_dimensions=(input_len,))
     model.add(layers.FullyConnected(input_len))
-    model.add(layers.ELU())
+    model.add(activations.PReLU())
     model.add(layers.FullyConnected(2))
-    model.add(layers.ELU())
+    model.add(activations.PReLU())
     model.add(layers.FullyConnected(1))
     model.compile(optimizer=optimizers.SGDMomentum())
 

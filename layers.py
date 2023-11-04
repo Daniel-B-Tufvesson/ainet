@@ -79,7 +79,7 @@ class Layer(ABC):
 
     @abstractmethod
     def update_parameters(self, learning_rate):
-        """Update the parameters of this layer using its gradients.
+        """Update the learnable parameters of this layer using its gradients and the optimizer.
         :param learning_rate:
         """
         pass
@@ -136,100 +136,3 @@ class FullyConnected(Layer):
                 self.weights[i, j] = (rand.random() * 2 - 1) * 0.01
 
 
-class ReLU(Layer):
-
-    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        return np.maximum(x, 0)
-
-    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        return gradients * (self.x > 0)
-
-    def update_parameters(self, learning_rate):
-        pass
-
-
-class LeakyReLU(Layer):
-
-    def __init__(self):
-        super().__init__()
-        self.alpha = 0.01
-
-    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        # max(x, x * alpha)
-        return np.where(x > 0, x, self.alpha * x)
-
-    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        return gradients * np.where(self.x > 0, 1, self.alpha)
-
-    def update_parameters(self, learning_rate):
-        pass
-
-
-class ELU(Layer):
-    """
-    The ELU activation function is a variant of the rectified linear unit (ReLU) that aims to
-    address some of the limitations of ReLU, such as the dying ReLU problem. It introduces a
-    small, non-zero gradient for negative inputs to keep neurons from becoming inactive
-    during training.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.alpha = 0.01
-
-    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        return np.where(x > 0, x, self.alpha * (np.exp(x) - 1))
-
-    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        return gradients * (np.where(self.x > 0, 1, self.alpha * np.exp(self.x)))
-
-    def update_parameters(self, learning_rate):
-        pass
-
-
-class Sigmoid(Layer):
-
-    @staticmethod
-    def sigmoid(x: np.ndarray) -> np.ndarray:
-        return 1 / (1 + np.exp(-x))
-
-    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        return self.sigmoid(x)
-
-    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        # s = self.sigmoid(self.x)
-        d_sigmoid = self.y * (1 - self.y)
-        return gradients * d_sigmoid
-
-    def update_parameters(self, learning_rate):
-        pass
-
-
-class ZeroSigmoid(Layer):
-    """
-    The Zero-Centered Sigmoid (z-sigmoid). This is a variation of the sigmoid function
-    that aims to address the issue of non-zero-centered outputs. In the z-sigmoid, the
-    output is scaled and shifted, resulting in values ranging from -1 to 1, and it is
-    centered around zero
-    """
-
-    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        return 2 * (1 / (1 + np.exp(-x))) - 1
-
-    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        return gradients * (0.5 * (1 + self.y) * (1 - self.y))
-
-    def update_parameters(self, learning_rate):
-        pass
-
-
-class Tanh(Layer):
-
-    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        return np.tanh(x)
-
-    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        return gradients * (1 - np.tanh(self.y) ** 2)
-
-    def update_parameters(self, learning_rate):
-        pass
