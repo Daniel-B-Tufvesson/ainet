@@ -165,6 +165,28 @@ class LeakyReLU(Layer):
         pass
 
 
+class ELU(Layer):
+    """
+    The ELU activation function is a variant of the rectified linear unit (ReLU) that aims to
+    address some of the limitations of ReLU, such as the dying ReLU problem. It introduces a
+    small, non-zero gradient for negative inputs to keep neurons from becoming inactive
+    during training.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.alpha = 0.01
+
+    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
+        return np.where(x > 0, x, self.alpha * (np.exp(x) - 1))
+
+    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
+        return gradients * (np.where(self.x > 0, 1, self.alpha * np.exp(self.x)))
+
+    def update_parameters(self, learning_rate):
+        pass
+
+
 class Sigmoid(Layer):
 
     @staticmethod

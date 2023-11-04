@@ -159,9 +159,9 @@ def test_train_seq_model():
 
     model = Sequence(input_dimensions=(input_len,))
     model.add(layers.FullyConnected(input_len))
-    model.add(layers.ZeroSigmoid())
+    model.add(layers.ELU())
     model.add(layers.FullyConnected(2))
-    model.add(layers.ZeroSigmoid())
+    model.add(layers.ELU())
     model.add(layers.FullyConnected(1))
     model.compile(optimizer=optimizers.SGDMomentum())
 
