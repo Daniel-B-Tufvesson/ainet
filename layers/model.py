@@ -81,7 +81,7 @@ class Sequence(BaseModel):
     def predict(self, x: np.ndarray) -> np.ndarray:
         return self.forward_pass(x)
 
-    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.01, batch_size=32,
+    def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.001, batch_size=32,
             loss_func: loss_functions.LossFunction | None = None):
 
         if len(x.shape) != 2:
@@ -156,38 +156,69 @@ def test_sequence_model():
 
 
 def test_train_seq_model():
-    input_len = 5
+    input_len = 2
 
     model = Sequence(input_dimensions=(input_len,))
     model.add(layers.FullyConnected(input_len))
     model.add(layers.Sigmoid())
-    model.add(layers.FullyConnected(5))
+    model.add(layers.FullyConnected(2))
     model.add(layers.Sigmoid())
     model.add(layers.FullyConnected(1))
-    model.compile(optimizer=optimizers.SGD())
+    model.compile(optimizer=optimizers.SGDMomentum())
 
+    # Teach the model the OR function.
+    train_data_x = np.array([
+        [0, 0],
+        [0, 1],
+        [1, 0],
+        [1, 1]
+    ])
+    train_data_y = np.array([
+        0,  # Change to 0.
+        1,
+        1,
+        0
+    ])
+
+    # Pre-train test.
+    for x, y in zip(train_data_x, train_data_y):
+        print(model.predict(x), ', expected: ', y)
+
+    model.fit(train_data_x, train_data_y, epochs=100000, learning_rate=0.01)
+
+    # Post-train test.
+    for x, y in zip(train_data_x, train_data_y):
+        print(model.predict(x), ', expected: ', y)
+
+    """
     # Generate training and validation data.
     import random as rand
     import math
 
     def new_sample_x():
-        return [rand.randrange(-10, 10) / 10 for _ in range(input_len)]
+        return [rand.randrange(-10, 10) for _ in range(input_len)]
 
     train_data_x = np.array([new_sample_x() for _ in range(100)])
-    train_data_y = np.array([math.prod(x) * 10 for x in train_data_x])
+    train_data_y = np.array([math.prod(x) for x in train_data_x])
 
     val_data_x = np.array([new_sample_x() for _ in range(100)])
-    val_data_y = np.array([math.prod(x) * 10 for x in val_data_x])
+    val_data_y = np.array([math.prod(x) for x in val_data_x])
 
     prediction = model.predict(train_data_x)
     # print(prediction)
 
     # Train the model.
     print('train model...')
-    model.fit(train_data_x, train_data_y, epochs=100)
+    model.fit(train_data_x, train_data_y, epochs=500)
     print('training complete')
 
     # print(model.create_batches(train_data_x, 32))
+
+    print('Testing...')
+    for i in range(20):
+        print(model.predict(val_data_x[i]), ', expected: ', val_data_y[i])
+    
+    """
 
 
 if __name__ == '__main__':

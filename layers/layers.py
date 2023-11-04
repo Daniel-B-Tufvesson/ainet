@@ -10,7 +10,7 @@ class Layer(ABC):
     def __init__(self):
         self.x = np.empty(0)  # The last input to this layer.
         self.y = np.empty(0)  # The last output of this layer.
-        #self.gradients = np.empty(0)  # The last (non-local) gradient of this layer.
+        # self.gradients = np.empty(0)  # The last (non-local) gradient of this layer.
         self.input_dimensions = (0,)  # The dimensionality of the input.
         self.output_dimensions = (0,)  # The dimensionality of the output.
         self.optimizer = None  # type: optimizers.Optimizer | None
@@ -42,7 +42,7 @@ class Layer(ABC):
                                  f'{self.input_dimensions}, got: {x.shape[0:]}')
 
             # Make the row-vectors into col-vectors.
-            #x = x.transpose()
+            # x = x.transpose()
 
         # Check unbatched input.
         else:
@@ -51,11 +51,10 @@ class Layer(ABC):
                                  f'{self.input_dimensions}, got: {x.shape}')
 
             # Promote vector to matrix.
-            #x = x[:, np.newaxis]
+            # x = x[:, np.newaxis]
 
-
-            #x = x.transpose()  # We want it to be a row vector.
-            #print(x.shape, ", pre-transpose: ", x.transpose().shape)
+            # x = x.transpose()  # We want it to be a row vector.
+            # print(x.shape, ", pre-transpose: ", x.transpose().shape)
 
         y = self._compute_forward(x)
         self.x = x
@@ -65,9 +64,9 @@ class Layer(ABC):
     @abstractmethod
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
         pass
-        #local_gradients = self._compute_local_gradients(gradients)
-        #self.gradients = local_gradients * gradients  # Elementwise mult. correct approach?
-        #return self.gradients
+        # local_gradients = self._compute_local_gradients(gradients)
+        # self.gradients = local_gradients * gradients  # Elementwise mult. correct approach?
+        # return self.gradients
 
     @abstractmethod
     def _compute_forward(self, x: np.ndarray) -> np.ndarray:
@@ -112,27 +111,20 @@ class FullyConnected(Layer):
         self.rand_init_weights()
 
         # The output is one dimensional with an element for each unit.
-        self.output_dimensions = (self.units, )
+        self.output_dimensions = (self.units,)
 
     def _compute_forward(self, x: np.ndarray) -> np.ndarray:
         return x @ self.weights
 
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
         self.weight_gradients = self.x.transpose() @ gradients
-        x_gradients = gradients @ self.weights.transpose()
-        #print('x: ', self.x)
-        #print('dy:', gradients)
-        #print('dw', self.weight_gradients)
-
-        return x_gradients
+        return gradients @ self.weights.transpose()
 
     def update_parameters(self, learning_rate):
         if self.optimizer is None:
             raise ValueError('optimizer is not set')
 
         self.weights = self.optimizer.step(self.weights, self.weight_gradients, learning_rate)
-        # SGD optimization.
-        #self.weights -= self.weight_gradients * learning_rate
 
     def rand_init_weights(self):
         """
@@ -141,11 +133,7 @@ class FullyConnected(Layer):
 
         for i in range(self.weights.shape[0]):
             for j in range(self.weights.shape[1]):
-                self.weights[i, j] = (rand.random()) * 0.0001
-
-        #print('rand weights: ', self.weights)
-
-
+                self.weights[i, j] = (rand.random() * 2 - 1) * 0.01
 
 
 class ReLU(Layer):
@@ -154,13 +142,24 @@ class ReLU(Layer):
         return np.maximum(x, 0)
 
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-
-        #relu_gradient = np.vectorize(lambda x: 1 if x > 0 else 0)
-
-        #return relu_gradient(gradients)
         return gradients * (self.x > 0)
 
-        #return np.ndarray([1 if x_i > 0 else 0 for x_i in self.x])
+    def update_parameters(self, learning_rate):
+        pass
+
+
+class LeakyReLU(Layer):
+
+    def __init__(self):
+        super().__init__()
+        self.alpha = 0.01
+
+    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
+        # max(x, x * alpha)
+        return np.where(x > 0, x, self.alpha * x)
+
+    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
+        return gradients * np.where(self.x > 0, 1, self.alpha)
 
     def update_parameters(self, learning_rate):
         pass
@@ -176,9 +175,21 @@ class Sigmoid(Layer):
         return self.sigmoid(x)
 
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        s = self.sigmoid(self.x)
-        d_sigmoid = s * (1 - s)
+        # s = self.sigmoid(self.x)
+        d_sigmoid = self.y * (1 - self.y)
         return gradients * d_sigmoid
+
+    def update_parameters(self, learning_rate):
+        pass
+
+
+class Tanh(Layer):
+
+    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
+        return np.tanh(x)
+
+    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
+        return gradients * (1 - np.tanh(self.y) ** 2)
 
     def update_parameters(self, learning_rate):
         pass
