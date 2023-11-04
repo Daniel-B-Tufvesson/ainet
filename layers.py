@@ -113,6 +113,9 @@ class FullyConnected(Layer):
         # The output is one dimensional with an element for each unit.
         self.output_dimensions = (self.units,)
 
+        # Initialize the optimizer.
+        self.optimizer.initialize(self.weights.shape)
+
     def _compute_forward(self, x: np.ndarray) -> np.ndarray:
         return x @ self.weights
 

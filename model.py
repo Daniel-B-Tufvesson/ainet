@@ -6,6 +6,7 @@ import activations
 import loss_functions
 import optimizers
 import layers
+import copy
 
 
 class BaseModel(layers.Layer, ABC):
@@ -57,7 +58,7 @@ class Sequence(BaseModel):
 
         # Compile each layer.
         for layer in self.layers:
-            layer.compile_layer(input_dimensions, optimizer)
+            layer.compile_layer(input_dimensions, copy.deepcopy(optimizer))
             input_dimensions = layer.output_dimensions
 
         # Last layers output dimensions becomes this sequence's output dimensions.
@@ -161,11 +162,11 @@ def test_train_seq_model():
 
     model = Sequence(input_dimensions=(input_len,))
     model.add(layers.FullyConnected(input_len))
-    model.add(activations.PReLU())
+    model.add(activations.Tanh())
     model.add(layers.FullyConnected(2))
-    model.add(activations.PReLU())
+    model.add(activations.Tanh())
     model.add(layers.FullyConnected(1))
-    model.compile(optimizer=optimizers.SGDMomentum())
+    model.compile(optimizer=optimizers.Adam())
 
     # Teach the model the OR function.
     train_data_x = np.array([
@@ -175,7 +176,7 @@ def test_train_seq_model():
         [1, 1]
     ])
     train_data_y = np.array([
-        0,  # Change to 0.
+        0,
         1,
         1,
         0
@@ -185,7 +186,7 @@ def test_train_seq_model():
     for x, y in zip(train_data_x, train_data_y):
         print(model.predict(x), ', expected: ', y)
 
-    model.fit(train_data_x, train_data_y, epochs=100000, learning_rate=0.01)
+    model.fit(train_data_x, train_data_y, epochs=50000, learning_rate=0.001)
 
     # Post-train test.
     for x, y in zip(train_data_x, train_data_y):

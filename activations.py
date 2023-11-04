@@ -34,7 +34,7 @@ class LeakyReLU(BaseActivation):
         self.alpha = alpha
 
     def _compute_forward(self, x: np.ndarray) -> np.ndarray:
-        # max(x, x * alpha)
+        # Compute max(x, x * alpha)
         return np.where(x > 0, x, self.alpha * x)
 
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
@@ -42,6 +42,15 @@ class LeakyReLU(BaseActivation):
 
 
 class PReLU(BaseActivation):
+    """
+    The Parametric Rectified Linear Unit (PReLU) is an activation function that is closely related
+    to the standard Rectified Linear Unit (ReLU). It is a learnable activation function, which means
+    that it introduces learnable parameters to the network to adaptively determine the slope of the
+    activation function for both positive and negative inputs.
+
+    alpha is a learnable parameter that can be adjusted during training. Each neuron using PReLU has
+    its own alpha making it a parameter per neuron.
+    """
 
     def __init__(self, initial_alpha=0.01):
         super().__init__()
@@ -53,6 +62,7 @@ class PReLU(BaseActivation):
         super().compile_layer(input_dimensions, optimizer)
 
         self.alpha = np.full(input_dimensions, fill_value=self.initial_alpha)
+        self.optimizer.initialize(self.alpha.shape)
 
     def _compute_forward(self, x: np.ndarray) -> np.ndarray:
         return np.where(x > 0, x, self.alpha * x)
@@ -95,7 +105,6 @@ class Sigmoid(BaseActivation):
         return self.sigmoid(x)
 
     def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
-        # s = self.sigmoid(self.x)
         d_sigmoid = self.y * (1 - self.y)
         return gradients * d_sigmoid
 
