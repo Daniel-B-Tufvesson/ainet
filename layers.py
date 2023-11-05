@@ -139,3 +139,50 @@ class FullyConnected(Layer):
                 self.weights[i, j] = (rand.random() * 2 - 1) * 0.01
 
 
+class Flatten(Layer):
+    """
+    Flattens the input from a multidimensional array to a 1-dimensional array. If the input
+    is batched, then the batch is preserved while flattening the individual arrays inside the
+    batch.
+    """
+
+    def compile_layer(self, input_dimensions: tuple[int, ...], optimizer: optimizers.Optimizer):
+        super().compile_layer(input_dimensions, optimizer)
+
+        # No flattening needed if input is already flat.
+        if len(input_dimensions) == 1:
+            self.output_dimensions = input_dimensions
+
+        # Flatten the input dimensions if it is multi-dimensional.
+        else:
+            self.output_dimensions = (np.prod(input_dimensions), )
+
+    def backward_pass(self, gradients: np.ndarray) -> np.ndarray:
+        # Check if this is a batched input.
+        if len(gradients.shape) == len(self.output_dimensions) + 1:
+
+            # Reshape the gradients into batched shape.
+            batched_input_shape = (gradients.shape[0],) + self.input_dimensions
+            return gradients.reshape(batched_input_shape)
+
+        # Reshape the gradients into unbatched shape.
+        else:
+            return gradients.reshape(self.input_dimensions)
+
+    def _compute_forward(self, x: np.ndarray) -> np.ndarray:
+        # Check if this is a batched input
+        if len(x.shape) == len(self.input_dimensions) + 1:
+
+            if self.input_dimensions != x.shape[1:]:
+                raise ValueError(f'Input array does not have correct dimensions. Expected: '
+                                 f'{self.input_dimensions}, got: {x.shape[0:]}')
+
+            batched_flat_shape = (x.shape[0],) + self.output_dimensions
+            return x.reshape(batched_flat_shape)
+
+        # Check if unbatched input has correct dimensions.
+        else:
+            return x.flatten()
+
+    def update_parameters(self, learning_rate):
+        pass
