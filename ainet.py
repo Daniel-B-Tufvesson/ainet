@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+import random
 
 import activations
 import loss_functions
+import metrics
 import optimizers
 import layers
 import copy
@@ -89,7 +91,10 @@ class Sequence(BaseModel):
         return self.forward_pass(x)
 
     def fit(self, x: np.ndarray, y: np.ndarray, epochs=1, learning_rate=0.001, batch_size=32,
-            loss_func: loss_functions.LossFunction | None = None):
+            loss_func: loss_functions.LossFunction | None = None,
+            val_x: np.ndarray = None, val_y: np.ndarray = None,
+            eval_metrics: list[metrics.Metric] = None,
+            shuffle_batches=False):
 
         if len(x.shape) != 2:
             raise ValueError('x is expected to have a two dimensional shape: (number_of_examples, input_length)')
@@ -98,20 +103,34 @@ class Sequence(BaseModel):
             raise ValueError(f'x does not have the correct input length. expected:'
                              f' {self.input_dimensions}, got: {(x.shape[1],)}')
 
+        # Todo: check val data.
+
+        if eval_metrics is None:
+            eval_metrics = []
+
         if loss_func is None:
             print('Loss function not specified. Use loss_functions.MSE')
             loss_func = loss_functions.MSE()
 
-        y = y[:, np.newaxis]
+        # Make sure if 1-dim vector, that it is a column vector.
+        if len(x.shape) == 1:
+            y = y[:, np.newaxis]
 
-        # Todo: gets stuck in local minimum. Fix: Momentum? Adam?
+        # Batch the input data.
         batches = self.create_batches(x, y, batch_size)
 
         for epoch in range(epochs):
 
             total_loss = 0
-            #random.shuffle(batches)
 
+            # Accumulated training metrics.
+            accumulated_metrics = {metric.name: 0 for metric in eval_metrics}
+
+            # Shuffle the batches.
+            if shuffle_batches:
+                random.shuffle(batches)
+
+            # Train on each batch.
             for batch in batches:
                 bx = batch[0]
                 by = batch[1]
@@ -122,6 +141,7 @@ class Sequence(BaseModel):
                 # Compute the loss and its gradients.
                 loss = loss_func.loss(prediction, by)
                 loss_gradients = loss_func.gradient(prediction, by)
+                loss_gradients = np.tile(loss_gradients, (by.shape[0], 1))  # Assign loss gradient to each example.
                 total_loss += loss
 
                 # Backpropagate the loss gradients.
@@ -130,10 +150,22 @@ class Sequence(BaseModel):
                 # Update the weights.
                 self.update_parameters(learning_rate)
 
-            avg_loss = total_loss / len(batches)
-            print(f'epoch: {epoch + 1}/{epochs}.  loss: {avg_loss}')
+                # Accumulate the training metrics.
+                for metric in eval_metrics:
+                    accumulated_metrics[metric.name] += metric.metric(prediction, by)
 
-    def create_batches(self, x: np.ndarray, y: np.ndarray, batch_size: int) -> list[(np.ndarray, np.ndarray)]:
+            # Do a per-epoch evaluation.
+            avg_loss = total_loss / len(batches)
+            print(f'epoch: {epoch + 1}/{epochs}.  loss: {avg_loss}', end='')
+
+            # Print metrics on the training data.
+            for name, value in accumulated_metrics.items():
+                print(f', {name}: {value / len(batches)}', end='')
+
+            print()
+
+    @staticmethod
+    def create_batches(x: np.ndarray, y: np.ndarray, batch_size: int) -> list[tuple[np.ndarray, np.ndarray]]:
         example_count = x.shape[0]
         batches = []
         for start in range(0, example_count, batch_size):
@@ -171,7 +203,7 @@ def test_train_seq_model():
     model.add(layers.FullyConnected(2))
     model.add(activations.Tanh())
     model.add(layers.FullyConnected(1))
-    model.compile(optimizer=optimizers.Adam())
+    model.compile(optimizer=optimizers.SGDMomentum())
 
     # Teach the model the OR function.
     train_data_x = np.array([
@@ -191,7 +223,7 @@ def test_train_seq_model():
     for x, y in zip(train_data_x, train_data_y):
         print(model.predict(x), ', expected: ', y)
 
-    model.fit(train_data_x, train_data_y, epochs=50000, learning_rate=0.001)
+    model.fit(train_data_x, train_data_y, epochs=50, learning_rate=0.001)
 
     # Post-train test.
     for x, y in zip(train_data_x, train_data_y):
@@ -233,6 +265,9 @@ if __name__ == '__main__':
 
 
 def softmax(x: np.ndarray) -> np.ndarray:
+    # Subtract the maximum value for numerical stability
+    x = x - np.max(x, axis=-1, keepdims=True)
+
     # Calculate the exponential of each element in the input array
     exp_x = np.exp(x)
 
@@ -241,3 +276,10 @@ def softmax(x: np.ndarray) -> np.ndarray:
 
     # Compute the softmax probabilities by dividing each exponential by the sum
     return exp_x / sum_exp_x
+
+
+def log_softmax(x: np.ndarray) -> np.ndarray:
+    x_max = np.max(x, axis=-1, keepdims=True)
+    return x - x_max - np.log(np.sum(np.exp(x - x_max), axis=-1, keepdims=True))
+
+

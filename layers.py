@@ -127,7 +127,11 @@ class FullyConnected(Layer):
         if self.optimizer is None:
             raise ValueError('optimizer is not set')
 
-        self.weights = self.optimizer.step(self.weights, self.weight_gradients, learning_rate)
+        new_weights = self.optimizer.step(self.weights, self.weight_gradients, learning_rate)
+
+        assert new_weights.shape == self.weights.shape
+
+        self.weights = new_weights
 
     def rand_init_weights(self):
         """

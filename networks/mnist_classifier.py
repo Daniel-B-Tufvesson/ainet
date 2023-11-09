@@ -7,9 +7,13 @@ import ainet as ai
 import layers
 import loss_functions
 import optimizers
+import metrics
+
+IMAGE_SIZE = 28
+CLASS_COUNT = 10
 
 
-def load_labels(filename: str, max_examples: int|None = None) -> np.ndarray:
+def load_labels(filename: str, max_examples: int | None = None) -> np.ndarray:
     with gzip.open(filename) as labels:
         label_data = labels.read()
 
@@ -17,11 +21,16 @@ def load_labels(filename: str, max_examples: int|None = None) -> np.ndarray:
         if max_examples is not None:
             examples_count = min(examples_count, max_examples + 8)
 
+        # Vectorize the labels.
+        def to_vector(class_index):
+            return [1 if i == class_index else 0 for i in range(CLASS_COUNT)]
+
         # Note: the labels start at position 8.
-        return np.array([label_data[i] for i in range(8, examples_count)])
+        return np.array([to_vector(label_data[i]) for i in range(8, examples_count)])
+        #return np.array([label_data[i] for i in range(8, examples_count)])
 
 
-def load_images(filename: str, max_examples: int|None = None) -> np.ndarray:
+def load_images(filename: str, max_examples: int | None = None) -> np.ndarray:
     with gzip.open(filename) as images:
         image_data = images.read()
 
@@ -44,33 +53,41 @@ def load_images(filename: str, max_examples: int|None = None) -> np.ndarray:
 
 
 # Load the data
-TRAIN_EXAMPLE_COUNT = 100
+TRAIN_EXAMPLE_COUNT = 1000  # 100
 train_x = load_images('data/train-images-idx3-ubyte.gz', max_examples=TRAIN_EXAMPLE_COUNT)
 train_y = load_labels('data/train-labels-idx1-ubyte.gz', max_examples=TRAIN_EXAMPLE_COUNT)
 
-print('Training examples: x:', train_x.shape[0], 'y:', train_y.shape[0])
+assert not np.isnan(train_x).any()
+assert not np.isnan(train_y).any()
 
+print('Training examples: x:', train_x.shape, 'y:', train_y.shape)
+
+# Zero center the data.
+train_x = train_x * 2 - 1
+
+print('x: ', train_x[0][:5])
+print('y: ', train_y[0])
 
 # Create the model.
 
-IMAGE_SIZE = 28
-CLASS_COUNT = 10
-
-model = ai.Sequence(input_dimensions=(IMAGE_SIZE**2, ))
-model.add(layers.FullyConnected(20))
+model = ai.Sequence(input_dimensions=(IMAGE_SIZE ** 2,))
+model.add(layers.FullyConnected(500))
 model.add(activations.ReLU())
-model.add(layers.FullyConnected(20))
+model.add(layers.FullyConnected(200))
 model.add(activations.ReLU())
 model.add(layers.FullyConnected(CLASS_COUNT))
 
 model.compile(optimizer=optimizers.SGDMomentum())
 
-
 # Train the model.
+# loss_func = loss_functions.CategoricalCrossEntropy(from_logits=True)
+# loss_func = loss_functions.MAE()
+loss_func = loss_functions.MSE()
 model.fit(train_x, train_y, epochs=100, learning_rate=0.001,
-          loss_func=loss_functions.CategoricalCrossEntropy(from_logits=True))
+          loss_func=loss_func,
+          eval_metrics=[metrics.Accuracy()]
+          )
 
 # Post-train test.
 for x, y in zip(train_x[:10], train_y[:10]):
-    print(model.predict(x), ', expected: ', y)
-
+    print(np.argmax(model.predict(x)), ', expected: ', np.argmax(y))

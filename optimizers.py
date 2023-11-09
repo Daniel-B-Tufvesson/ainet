@@ -34,13 +34,7 @@ class SGDMomentum(Optimizer):
         self.velocity = np.zeros(shape=parameter_shape)
 
     def step(self, parameters: np.ndarray, gradients: np.ndarray, learning_rate: float) -> np.ndarray:
-
-        # Shape mismatch indicates first step, so initialize velocity at 0.
-        # if self.velocity.shape != parameters.shape:
-        #     self.velocity = np.zeros_like(parameters)
-
         self.velocity = self.momentum * self.velocity - learning_rate * gradients
-
         return parameters + self.velocity
 
 
