@@ -80,7 +80,7 @@ model.add(layers.FullyConnected(CLASS_COUNT))
 model.compile(optimizer=optimizers.SGDMomentum())
 
 # Train the model.
-# loss_func = loss_functions.CategoricalCrossEntropy(from_logits=True)
+# loss_func = loss_functions.CategoricalCrossEntropyV2(from_logits=True)
 # loss_func = loss_functions.MAE()
 loss_func = loss_functions.MSE()
 model.fit(train_x, train_y, epochs=100, learning_rate=0.001,

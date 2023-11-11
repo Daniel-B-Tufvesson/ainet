@@ -55,7 +55,6 @@ class CategoricalCrossEntropy(LossFunction):
         # Subtract the maximum value for numerical stability
         x = x - np.max(x, axis=-1, keepdims=True)
 
-        #print(np.max(x, axis=-1, keepdims=True))
         assert not np.isnan(x).any()
 
         # Compute the log-softmax using the log-sum-exp trick
@@ -112,8 +111,41 @@ class CategoricalCrossEntropy(LossFunction):
 
 class CategoricalCrossEntropyV2(LossFunction):
 
+    def __init__(self, from_logits=False):
+        self.from_logits = from_logits
+
+    @staticmethod
+    def log_softmax(x: np.ndarray) -> np.ndarray:
+        # Subtract the maximum value for numerical stability
+        x = x - np.max(x, axis=-1, keepdims=True)
+
+        # Compute the log-softmax using the log-sum-exp trick
+        return x - np.log(np.sum(np.exp(x), axis=-1, keepdims=True))
+
     def loss(self, prediction_y: np.ndarray, target_y: np.ndarray) -> float:
-        pass
+
+        # Make sure the input has the right dimensions.
+        if len(prediction_y.shape) != 2:
+            raise ValueError(f'input must have a shape of length 2. got: {prediction_y.shape}')
+
+        # Compute cross entropy from logits using softmax.
+        if self.from_logits:
+            log_softmax_probs = self.log_softmax(prediction_y)
+            return -np.sum(target_y * log_softmax_probs) / len(log_softmax_probs)
+
+        else:
+            raise NotImplementedError()
 
     def gradient(self, prediction_y: np.ndarray, target_y: np.ndarray) -> np.ndarray:
-        pass
+
+        # Make sure the input has the right dimensions.
+        if len(prediction_y.shape) != 2:
+            raise ValueError(f'input must have a shape of length 2. got: {prediction_y.shape}')
+
+        if self.from_logits:
+            log_softmax_probs = self.log_softmax(prediction_y)
+            gradient = np.sum(log_softmax_probs - target_y, axis=0) / len(prediction_y)
+            return gradient
+
+        else:
+            raise NotImplementedError()
